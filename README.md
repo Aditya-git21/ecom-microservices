@@ -15,3 +15,5 @@ k8s
 frontend
 
 How to run
+
+activate venv

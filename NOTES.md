@@ -17,11 +17,21 @@ files setup
 • main.py: The entrypoint that spins up FastAPI, defines endpoints (/register, /login, /me), and ties all components together.
 
 
+curl can register, login, and call /me with the token
+ Wrong password gives 401, duplicate email gives 409
+ Password hash is visible in the DB but never in any response
+
+
+
 # Errors I hit n how i fix the 
 
 many linux cmd errors n confusions  - took help n google n fixed 
+
+url mapping error 
 
 
 # Things I didn't understand yet 
 
 I dont understand the pyhton n why venv is needed here 
+
+JWT tokens (auth how its works)

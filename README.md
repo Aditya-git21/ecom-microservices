@@ -16,4 +16,5 @@ frontend
 
 How to run
 
-activate venv
+source .venv/bin/activate
+uvicorn app.main:app 

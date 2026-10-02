@@ -2,14 +2,46 @@
 echo "🚀 Seeding products catalog into products_db..."
 echo "------------------------------------------------"
 
-curl -X POST http://127.0.0 -H "Content-Type: application/json" -d '{"name": "Mechanical Keyboard", "description": "RGB Backlit tactile switches", "price": 89.99, "stock": 50}'
+API_URL="http://127.0.0.1:8001/products"
+
+curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
+  "name": "Mechanical Keyboard",
+  "description": "RGB Backlit tactile mechanical keyboard",
+  "price": 89.99,
+  "stock": 50
+}'
 echo -e "\n"
-curl -X POST http://127.0.0 -H "Content-Type: application/json" -d '{"name": "Wireless Ergonomic Mouse", "description": "High precision optical sensor", "price": 49.50, "stock": 120}'
+
+curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
+  "name": "Wireless Ergonomic Mouse",
+  "description": "High-precision vertical wireless mouse",
+  "price": 59.99,
+  "stock": 100
+}'
 echo -e "\n"
-curl -X POST http://127.0.0 -H "Content-Type: application/json" -d '{"name": "UltraWide 34in Monitor", "description": "144Hz curved display panel", "price": 349.99, "stock": 15}'
+
+curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
+  "name": "UltraWide 34in Monitor",
+  "description": "144Hz curved ultrawide gaming display",
+  "price": 449.99,
+  "stock": 15
+}'
 echo -e "\n"
-curl -X POST http://127.0.0 -H "Content-Type: application/json" -d '{"name": "Noise Cancelling Headphones", "description": "Over-ear wireless audio crisp profile", "price": 199.00, "stock": 8}'
+
+curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
+  "name": "Noise Cancelling Headphones",
+  "description": "Over-ear active noise cancelling headphones",
+  "price": 199.99,
+  "stock": 30
+}'
 echo -e "\n"
-curl -X POST http://127.0.0 -H "Content-Type: application/json" -d '{"name": "USB-C Multi-port Hub", "description": "6-in-1 aluminum space gray adapter", "price": 24.95, "stock": 200}'
+
+curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
+  "name": "USB-C Multi-port Hub",
+  "description": "8-in-1 space gray aluminum adapter hub",
+  "price": 34.99,
+  "stock": 120
+}'
 
 echo -e "\n\n✅ Catalog seeding complete!"
+

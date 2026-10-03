@@ -1,91 +1,84 @@
-import os
-from fastapi import FastAPI, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
 from typing import List
+from fastapi import FastAPI, Depends, HTTPException, Query, status
+from sqlalchemy import update
+from sqlalchemy.orm import Session
 
-from app.database import engine, Base, get_db
-from app.schemas import ProductCreate, ProductResponse, StockReduce
-from app.models import Product
+from . import models, schemas
+from .database import Base, engine, get_db
+
+# Creates tables that don't exist yet (does NOT modify existing ones)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Product Service")
 
-# Lifecycle initialization hook ensuring database tables exist
-@app.on_event("startup")
-async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
-# 1. GET /health
-@app.get("/health", status_code=status.HTTP_200_OK)
-async def health_check(db: AsyncSession = Depends(get_db)):
-    try:
-        await db.execute(select(1))
-        return {"status": "UP", "service": "product-service"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-            detail=f"Database connection failed: {str(e)}"
-        )
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
-# 2. POST /products
-@app.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
-async def create_product(product_in: ProductCreate, db: AsyncSession = Depends(get_db)):
-    new_product = Product(
-        name=product_in.name,
-        description=product_in.description,
-        price=product_in.price,
-        stock=product_in.stock
-    )
-    db.add(new_product)
-    await db.commit()
-    await db.refresh(new_product)
-    return new_product
 
-# 3. GET /products (With pagination limit & offset implemented)
-@app.get("/products", response_model=List[ProductResponse])
-async def list_products(limit: int = 10, offset: int = 0, db: AsyncSession = Depends(get_db)):
-    query = select(Product).order_by(Product.created_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(query)
-    return result.scalars().all()
-
-# 4. GET /products/{id}
-@app.get("/products/{id}", response_model=ProductResponse)
-async def get_product(id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Product).where(Product.id == id))
-    product = result.scalar_one_or_none()
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+@app.post("/products", response_model=schemas.ProductOut,
+          status_code=status.HTTP_201_CREATED)
+def create_product(payload: schemas.ProductCreate, db: Session = Depends(get_db)):
+    product = models.Product(**payload.model_dump())
+    db.add(product)
+    db.commit()
+    db.refresh(product)
     return product
 
-# 5. PATCH /products/{id}/stock (Atomic Thread-Safe stock reduction)
-@app.patch("/products/{id}/stock", response_model=ProductResponse)
-async def reduce_stock(id: str, payload: StockReduce, db: AsyncSession = Depends(get_db)):
-    # Atomic transaction query directly modifying database level state safely
+
+@app.get("/products", response_model=List[schemas.ProductOut])
+def list_products(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(models.Product)
+        .order_by(models.Product.id)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+@app.get("/products/{product_id}", response_model=schemas.ProductOut)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.get(models.Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+@app.post("/products/{product_id}/reduce-stock")
+def reduce_product_stock(
+    product_id: int,
+    payload: schemas.StockReductionRequest,
+    db: Session = Depends(get_db),
+):
+    # One atomic statement: check and decrement happen together in Postgres
     stmt = (
-        update(Product)
-        .where(Product.id == id)
-        .where(Product.stock >= payload.quantity)
-        .values(stock=Product.stock - payload.quantity)
-        .returning(Product)
+        update(models.Product)
+        .where(models.Product.id == product_id)
+        .where(models.Product.stock >= payload.quantity)
+        .values(stock=models.Product.stock - payload.quantity)
+        .returning(models.Product.stock)
     )
-    
-    result = await db.execute(stmt)
-    updated_product = result.scalar_one_or_none()
-    
-    if updated_product:
-        await db.commit()
-        return updated_product
+    row = db.execute(stmt).fetchone()
 
-    # Fallback to identify exact scenario profile when mutation updates zero matching instances
-    exists_result = await db.execute(select(Product.stock).where(Product.id == id))
-    current_stock = exists_result.scalar_one_or_none()
-    
-    if current_stock is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-        
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, 
-        detail=f"Insufficient stock available. Current stock: {current_stock}"
-    )
+    if row is None:
+        db.rollback()
+        product = db.get(models.Product, product_id)
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock. Available stock is {product.stock}.",
+        )
 
+    db.commit()
+    return {
+        "message": "Stock reduced successfully",
+        "reduced_by": payload.quantity,
+        "remaining_stock": row[0],
+    }

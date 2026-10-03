@@ -1,29 +1,24 @@
-from pydantic import BaseModel, Field, ConfigDict
 from decimal import Decimal
-from uuid import UUID
-from datetime import datetime
 from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
 
-# Universal validation criteria shared across actions
-class ProductBase(BaseModel):
-    name: str = Field(..., max_length=255)
-    description: Optional[str] = None
-    price: Decimal = Field(..., ge=0.00, decimal_places=2)
-    stock: int = Field(..., ge=0)
 
-# Schema representing payloads sent to POST /products
-class ProductCreate(ProductBase):
-    pass
+class ProductCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=1000)
+    price: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2)
+    stock: int = Field(0, ge=0)
 
-# Schema handling variations of inventory adjustments
-class StockReduce(BaseModel):
-    quantity: int = Field(..., ge=1, description="Number of items to deduct from warehouse stock")
 
-# Explicit response validation format returned to consumers
-class ProductResponse(ProductBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
-
+class ProductOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
+    name: str
+    description: Optional[str]
+    price: Decimal
+    stock: int
+
+
+class StockReductionRequest(BaseModel):
+    quantity: int = Field(..., gt=0, description="Must be greater than 0")

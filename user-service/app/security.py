@@ -1,42 +1,38 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-import jwt
+
 import bcrypt
+import jwt
+from dotenv import load_dotenv
 
-# Read configurations directly from the environment variables
-SECRET_KEY = os.getenv("JWT_SECRET")
-ACCESS_TOKEN_EXPIRE_MINUTES_STR = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+load_dotenv()
 
-# Strict check: Fail immediately if the variables are missing
-if not SECRET_KEY:
-    raise ValueError("CRITICAL ERROR: JWT_SECRET environment variable is missing!")
-if not ACCESS_TOKEN_EXPIRE_MINUTES_STR:
-    raise ValueError("CRITICAL ERROR: ACCESS_TOKEN_EXPIRE_MINUTES environment variable is missing!")
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(ACCESS_TOKEN_EXPIRE_MINUTES_STR)
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET is not set")
 
-# --- Password Management Processing ---
+
 def hash_password(password: str) -> str:
-    """Hashes a clear text password using secure bcrypt salting."""
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies that a plain text password matches a given hash."""
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-# --- Token Creation Processing ---
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Generates an encrypted JWT access token string containing payload definitions."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
+
+def create_access_token(user_id: int) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),  # JWT spec wants sub as a string
+        "iat": now,
+        "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_access_token(token: str) -> dict:
+    # raises jwt.PyJWTError (expired, bad signature, malformed) on failure
+    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])

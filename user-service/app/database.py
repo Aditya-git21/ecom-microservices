@@ -1,32 +1,22 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
-from dotenv import load_dotenv  # 1. Import load_dotenv
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Load local environment variables from a .env file if it exists
-load_dotenv()  # 2. Call load_dotenv
+load_dotenv()
 
-# Read the database connection URL from the system environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
-
-# Strict check: Fail immediately if the variable is missing
 if not DATABASE_URL:
-    raise ValueError("CRITICAL ERROR: DATABASE_URL environment variable is missing!")
+    raise RuntimeError("DATABASE_URL is not set")
 
-# Create the SQLAlchemy Engine
 engine = create_engine(DATABASE_URL)
-
-# Create the Session Local Factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Declarative base class for models
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
-# Dependency injection function to handle database sessions per request
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-

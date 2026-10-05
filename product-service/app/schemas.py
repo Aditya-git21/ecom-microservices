@@ -21,4 +21,4 @@ class ProductOut(BaseModel):
 
 
 class StockReductionRequest(BaseModel):
-    quantity: int = Field(..., gt=0, description="Must be greater than 0")
+    quantity: int = Field(..., gt=0)

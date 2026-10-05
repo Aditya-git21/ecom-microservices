@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from .database import Base, engine, get_db
 
-# Creates tables that don't exist yet (does NOT modify existing ones)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Product Service")
@@ -56,7 +55,7 @@ def reduce_product_stock(
     payload: schemas.StockReductionRequest,
     db: Session = Depends(get_db),
 ):
-    # One atomic statement: check and decrement happen together in Postgres
+    # check + decrement in ONE atomic statement, so concurrent orders can't oversell
     stmt = (
         update(models.Product)
         .where(models.Product.id == product_id)
@@ -77,8 +76,4 @@ def reduce_product_stock(
         )
 
     db.commit()
-    return {
-        "message": "Stock reduced successfully",
-        "reduced_by": payload.quantity,
-        "remaining_stock": row[0],
-    }
+    return {"reduced_by": payload.quantity, "remaining_stock": row[0]}

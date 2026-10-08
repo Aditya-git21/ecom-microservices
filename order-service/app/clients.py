@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
+if not INTERNAL_API_KEY:
+    raise RuntimeError("INTERNAL_API_KEY is not set")
+
 PRODUCT_SERVICE_URL = os.getenv("PRODUCT_SERVICE_URL")
 if not PRODUCT_SERVICE_URL:
     raise RuntimeError("PRODUCT_SERVICE_URL is not set")

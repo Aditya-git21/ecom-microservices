@@ -1,3 +1,4 @@
+from .security import require_internal_key
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException, Query, status
 from sqlalchemy import update
@@ -48,8 +49,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found")
     return product
 
-
-@app.post("/products/{product_id}/reduce-stock")
+@app.post("/products/{product_id}/reduce-stock", dependencies=[Depends(require_internal_key)])
 def reduce_product_stock(
     product_id: int,
     payload: schemas.StockReductionRequest,

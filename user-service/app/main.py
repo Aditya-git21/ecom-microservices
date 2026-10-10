@@ -79,3 +79,4 @@ def login(payload: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/me", response_model=schemas.UserOut)
 def me(current_user: models.User = Depends(get_current_user)):
     return current_user
+#this is the dumy content or comment

@@ -57,11 +57,13 @@ def get_product(product_id: int) -> dict:
 
 def reduce_stock(product_id: int, quantity: int) -> dict:
     resp = _request("POST", f"/products/{product_id}/reduce-stock",
-                    json={"quantity": quantity})
+                    json={"quantity": quantity},
+                    headers={"X-Internal-Key": INTERNAL_API_KEY})
     if resp.status_code == 404:
         raise ProductNotFound()
     if resp.status_code == 400:
         raise InsufficientStock()
     if resp.status_code != 200:
+        # includes 401: service key misconfigured, not the user's fault, so surface as 503
         raise ProductServiceUnavailable(f"unexpected status {resp.status_code}")
     return resp.json()
